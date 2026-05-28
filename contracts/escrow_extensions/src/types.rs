@@ -101,4 +101,10 @@ pub enum DataKey {
     PendingUpgrade,
     /// Storage version for migration.
     StorageVersion,
+    /// Cross-chain proof record — key: BytesN<32>, value: crosschain::ProofRecord
+    CrossChainProof(soroban_sdk::BytesN<32>),
+    /// Bridge signer pubkey — key: (chain_id, index), value: BytesN<32>
+    BridgeSigner(u32, u32),
+    /// Bridge signature threshold per chain — key: chain_id, value: u32
+    BridgeThreshold(u32),
 }

@@ -33,6 +33,7 @@
 #![no_std]
 #![deny(warnings)]
 
+pub mod crosschain;
 mod errors;
 mod event_names;
 mod events;
@@ -657,6 +658,39 @@ impl EscrowExtensions {
     /// Returns the pending upgrade, if any.
     pub fn get_pending_upgrade(env: Env) -> Option<PendingUpgrade> {
         env.storage().instance().get(&DataKey::PendingUpgrade)
+    }
+
+    // ── Cross-Chain Settlement Fallback (Issue #918) ──────────────────────────
+
+    /// Registers bridge signers and threshold for a partner chain (admin-only).
+    pub fn register_bridge(
+        env: Env,
+        caller: Address,
+        chain_id: u32,
+        signers: Vec<BytesN<32>>,
+        threshold: u32,
+    ) -> Result<(), ExtError> {
+        caller.require_auth();
+        crosschain::register_bridge(&env, &caller, chain_id, signers, threshold)
+    }
+
+    /// Submits a cross-chain proof and releases escrowed funds if valid.
+    pub fn submit_proof_and_release(
+        env: Env,
+        relayer: Address,
+        proof: crosschain::CrossChainProof,
+        token: Address,
+        release_amount: i128,
+    ) -> Result<(), ExtError> {
+        crosschain::submit_proof_and_release(&env, &relayer, proof, &token, release_amount)
+    }
+
+    /// Returns the proof record for a given proof hash.
+    pub fn get_proof_record(
+        env: Env,
+        proof_hash: BytesN<32>,
+    ) -> Result<crosschain::ProofRecord, ExtError> {
+        crosschain::get_proof_record(&env, proof_hash)
     }
 }
 
