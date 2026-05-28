@@ -1,0 +1,15 @@
+[package]
+name = "stellar-trust-escrow-shared"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Shared contracts for StellarTrustEscrow — multi-sig vault with timelocked recovery"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+soroban-sdk = { version = "21.0.0", features = [] }
+
+[dev-dependencies]
+soroban-sdk = { version = "21.0.0", features = ["testutils"] }
