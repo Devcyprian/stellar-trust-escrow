@@ -101,6 +101,7 @@ use stellar_trust_shared::{
 };
 
 mod storage;
+pub mod subscription;
 
 /// Maximum allowed `total_amount` for a single escrow, in stroops.
 ///
@@ -3870,7 +3871,49 @@ impl EscrowContract {
         })
     }
 
-    pub fn escrow_count(env: Env) -> u64 {
+    // ── Subscription Extensions (Issue #916) ─────────────────────────────────
+
+    /// Pre-authorizes recurring withdrawals for a subscription escrow.
+    pub fn authorize_subscription(
+        env: Env,
+        caller: Address,
+        escrow_id: u64,
+        intervals: u32,
+        max_payment_cap: i128,
+    ) -> Result<(), EscrowError> {
+        subscription::authorize_subscription(env, caller, escrow_id, intervals, max_payment_cap)
+    }
+
+    /// Updates the subscription tier and optional payment cap.
+    pub fn update_subscription_tier(
+        env: Env,
+        caller: Address,
+        escrow_id: u64,
+        new_tier: subscription::SubscriptionTier,
+        new_max_cap: i128,
+    ) -> Result<(), EscrowError> {
+        subscription::update_subscription_tier(env, caller, escrow_id, new_tier, new_max_cap)
+    }
+
+    /// Raises a dispute on a specific subscription interval.
+    pub fn dispute_subscription_interval(
+        env: Env,
+        caller: Address,
+        escrow_id: u64,
+        interval_index: u32,
+    ) -> Result<(), EscrowError> {
+        subscription::dispute_subscription_interval(env, caller, escrow_id, interval_index)
+    }
+
+    /// Returns the subscription configuration for an escrow.
+    pub fn get_subscription_config(
+        env: Env,
+        escrow_id: u64,
+    ) -> Result<subscription::SubscriptionConfig, EscrowError> {
+        subscription::get_subscription_config(env, escrow_id)
+    }
+
+        pub fn escrow_count(env: Env) -> u64 {
         ContractStorage::escrow_count(&env)
     }
 

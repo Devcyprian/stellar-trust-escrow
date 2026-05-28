@@ -712,4 +712,6 @@ pub enum DataKey {
     PlatformFeeTiers,
     /// Applied fee snapshot for an escrow â€” key: u64, value: EscrowFeeSnapshot
     PlatformFeeSnapshot(u64),
+    /// Subscription configuration for a recurring escrow — key: u64, value: SubscriptionConfig
+    SubscriptionConfig(u64),
 }
