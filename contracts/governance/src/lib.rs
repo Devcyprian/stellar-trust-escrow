@@ -30,6 +30,7 @@
 
 mod errors;
 mod events;
+pub mod penalties;
 mod tests;
 mod types;
 
@@ -716,5 +717,51 @@ impl GovernanceContract {
         env.storage().persistent()
             .get(&DataKey::ArbitratorStake(address))
             .unwrap_or(0)
+    }
+
+    // ── Arbitrator Penalty Ledger (Issue #915) ────────────────────────────────
+
+    /// Records a penalty point against an arbitrator.
+    pub fn record_arbitrator_penalty(
+        env: Env,
+        caller: Address,
+        arbitrator: Address,
+        reason: penalties::PenaltyReason,
+    ) -> Result<penalties::PenaltyRecord, GovError> {
+        caller.require_auth();
+        penalties::record_penalty(&env, &caller, &arbitrator, reason)
+    }
+
+    /// Records a successful on-time dispute resolution for an arbitrator.
+    pub fn record_arbitrator_resolution(
+        env: Env,
+        caller: Address,
+        arbitrator: Address,
+    ) -> Result<(), GovError> {
+        caller.require_auth();
+        penalties::record_resolution(&env, &caller, &arbitrator)
+    }
+
+    /// Returns the effective reward share in basis points for an arbitrator.
+    pub fn get_arbitrator_reward_bps(env: Env, arbitrator: Address) -> u32 {
+        penalties::get_reward_bps(&env, &arbitrator)
+    }
+
+    /// Returns the full penalty record for an arbitrator.
+    pub fn get_arbitrator_penalty_record(
+        env: Env,
+        arbitrator: Address,
+    ) -> penalties::PenaltyRecord {
+        penalties::get_penalty_record(&env, &arbitrator)
+    }
+
+    /// Clears all penalty points for an arbitrator (admin-only).
+    pub fn clear_arbitrator_penalties(
+        env: Env,
+        caller: Address,
+        arbitrator: Address,
+    ) -> Result<(), GovError> {
+        caller.require_auth();
+        penalties::clear_penalties(&env, &caller, &arbitrator)
     }
 }

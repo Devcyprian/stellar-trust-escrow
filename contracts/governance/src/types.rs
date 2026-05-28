@@ -154,4 +154,6 @@ pub enum DataKey {
     WithdrawCooldown(Address),
     /// Slash record counter
     SlashCounter,
+    /// Arbitrator penalty record — key: Address, value: penalties::PenaltyRecord
+    ArbitratorPenalty(Address),
 }
