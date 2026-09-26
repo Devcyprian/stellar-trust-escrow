@@ -29,8 +29,12 @@ const websocketMock = {
 };
 
 jest.unstable_mockModule('../lib/prisma.js', () => ({ default: prismaMock }));
-jest.unstable_mockModule('../services/ipfsService.js', () => ({ default: ipfsServiceMock }));
-jest.unstable_mockModule('../services/virusScanner.js', () => ({ default: virusScannerMock }));
+jest.unstable_mockModule('../services/ipfsService.js', () => ({
+  default: ipfsServiceMock,
+}));
+jest.unstable_mockModule('../services/virusScanner.js', () => ({
+  default: virusScannerMock,
+}));
 jest.unstable_mockModule('../api/middleware/auth.js', () => ({
   default: (req, _res, next) => {
     req.user = { userId: 1, tenantId: 'test-tenant-id', type: 'access' };
@@ -85,7 +89,9 @@ describe('Dispute Evidence Upload', () => {
     };
 
     prisma.dispute.findFirst.mockResolvedValue(testDispute);
-    prisma.userProfile.findFirst.mockResolvedValue({ walletAddress: testUser.walletAddress });
+    prisma.userProfile.findFirst.mockResolvedValue({
+      walletAddress: testUser.walletAddress,
+    });
     prisma.disputeEvidence.create.mockImplementation(({ data }) => ({
       id: Math.floor(Math.random() * 1000),
       ...data,
@@ -94,7 +100,10 @@ describe('Dispute Evidence Upload', () => {
     prisma.disputeEvidence.findMany.mockResolvedValue([]);
     prisma.disputeEvidence.count.mockResolvedValue(0);
 
-    ipfsService.pinFile.mockResolvedValue({ cid: 'QmTest123456789', size: validFileBuffer.length });
+    ipfsService.pinFile.mockResolvedValue({
+      cid: 'bafybeigdyrztutndqz6w5v3mds6k7l5s4vk5vyj7c3n3gl4b2y2e6q7yzi',
+      size: validFileBuffer.length,
+    });
     ipfsService.generateThumbnail.mockResolvedValue(Buffer.from('thumbnail-data'));
     ipfsService.getFileUrl.mockImplementation(async (cid) => `https://ipfs.io/ipfs/${cid}`);
     ipfsService.isImage.mockReturnValue(false);
@@ -130,7 +139,7 @@ describe('Dispute Evidence Upload', () => {
           data: expect.objectContaining({
             disputeId: 1,
             filename: 'test.txt',
-            ipfsCid: 'QmTest123456789',
+            ipfsCid: 'bafybeigdyrztutndqz6w5v3mds6k7l5s4vk5vyj7c3n3gl4b2y2e6q7yzi',
             scanStatus: 'clean',
           }),
         }),
@@ -140,8 +149,14 @@ describe('Dispute Evidence Upload', () => {
     it('uploads image evidence with thumbnail', async () => {
       ipfsService.isImage.mockReturnValue(true);
       ipfsService.pinFile
-        .mockResolvedValueOnce({ cid: 'QmImage123', size: 100 })
-        .mockResolvedValueOnce({ cid: 'QmThumb456', size: 50 });
+        .mockResolvedValueOnce({
+          cid: 'bafybeiaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          size: 100,
+        })
+        .mockResolvedValueOnce({
+          cid: 'bafybeibbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+          size: 50,
+        });
 
       const response = await request(app)
         .post('/api/disputes/1/evidence')
@@ -149,7 +164,9 @@ describe('Dispute Evidence Upload', () => {
         .attach('files', validFileBuffer, 'test.jpg');
 
       expect(response.status).toBe(201);
-      expect(response.body.evidence[0].thumbnailCid).toBe('QmThumb456');
+      expect(response.body.evidence[0].thumbnailCid).toBe(
+        'bafybeibbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      );
       expect(ipfsService.generateThumbnail).toHaveBeenCalled();
     });
 
@@ -229,6 +246,22 @@ describe('Dispute Evidence Upload', () => {
 
       expect(response.status).toBe(500);
       expect(response.body.error).toBe('IPFS upload failed');
+    });
+
+    it('rejects non-CIDv1 IPFS hashes before persisting evidence', async () => {
+      ipfsService.pinFile.mockResolvedValue({
+        cid: 'QmCidV0HashShouldNotPersist',
+        size: validFileBuffer.length,
+      });
+
+      const response = await request(app)
+        .post('/api/disputes/1/evidence')
+        .set('Authorization', authToken)
+        .attach('files', validFileBuffer, 'test.txt');
+
+      expect(response.status).toBe(502);
+      expect(response.body.error).toBe('Invalid IPFS CID version');
+      expect(prisma.disputeEvidence.create).not.toHaveBeenCalled();
     });
   });
 

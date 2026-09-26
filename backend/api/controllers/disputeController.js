@@ -21,6 +21,11 @@ const VALID_DISPUTE_SORT_FIELDS = new Set(['raisedAt', 'resolvedAt', 'id']);
 const VALID_SORT_ORDERS = new Set(['asc', 'desc']);
 
 const DISPUTE_MAX_LIMIT = 50;
+const CIDV1_BASE32_RE = /^b[a-z2-7]{20,}$/;
+
+function isCidV1(cid) {
+  return typeof cid === 'string' && CIDV1_BASE32_RE.test(cid);
+}
 
 const listDisputes = async (req, res) => {
   try {
@@ -210,6 +215,20 @@ const postEvidence = async (req, res) => {
     const evidenceRecords = [];
 
     for (const uploadResult of uploadResults) {
+      if (!isCidV1(uploadResult.ipfsCid)) {
+        return res.status(502).json({
+          error: 'Invalid IPFS CID version',
+          message: 'Dispute evidence uploads must return CIDv1 IPFS hashes.',
+        });
+      }
+
+      if (uploadResult.thumbnailCid && !isCidV1(uploadResult.thumbnailCid)) {
+        return res.status(502).json({
+          error: 'Invalid IPFS CID version',
+          message: 'Dispute evidence thumbnails must return CIDv1 IPFS hashes.',
+        });
+      }
+
       const scanResult = scanResults.find((s) => s.originalname === uploadResult.originalname);
 
       const evidenceRecord = await prisma.disputeEvidence.create({
@@ -542,7 +561,11 @@ const verifyEvidence = async (req, res) => {
       const record = records[i];
       if (!record?.fileHash) return { id: record?.id, valid: false, reason: 'No stored hash' };
       const { hex } = hashFile(file.buffer);
-      return { id: record.id, filename: file.originalname, valid: hex === record.fileHash };
+      return {
+        id: record.id,
+        filename: file.originalname,
+        valid: hex === record.fileHash,
+      };
     });
 
     const storedHashes = records.map((r) => r.fileHash).filter(Boolean);

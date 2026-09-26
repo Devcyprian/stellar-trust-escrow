@@ -29,6 +29,7 @@ import { buildAdminHeaders } from '../../store/admin';
 import MetricCard from '../../components/admin/MetricCard';
 import EscrowStatusChart from '../../components/admin/EscrowStatusChart';
 import DisputeResolutionChart from '../../components/admin/DisputeResolutionChart';
+import DateRangePicker from '../../components/admin/DateRangePicker';
 import {
   deriveMetrics,
   formatCount,
@@ -94,31 +95,39 @@ export default function AdminDashboard() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [dateRange, setDateRange] = useState({ from: '', to: '' });
 
   useEffect(() => {
     setInputKey(apiKey);
   }, [apiKey]);
 
-  const fetchStats = useCallback(async (key) => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await fetch(`${API_BASE}/api/admin/stats`, {
-        headers: buildAdminHeaders(key, {}),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to fetch stats');
+  const fetchStats = useCallback(
+    async (key, range = dateRange) => {
+      setLoading(true);
+      setError('');
+      try {
+        const params = new URLSearchParams();
+        if (range.from) params.set('dateFrom', range.from);
+        if (range.to) params.set('dateTo', range.to);
+        const query = params.toString();
+        const res = await fetch(`${API_BASE}/api/admin/stats${query ? `?${query}` : ''}`, {
+          headers: buildAdminHeaders(key, {}),
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || 'Failed to fetch stats');
+        }
+        setStats(await res.json());
+        setLastUpdated(new Date());
+      } catch (err) {
+        setError(err.message);
+        setStats(null);
+      } finally {
+        setLoading(false);
       }
-      setStats(await res.json());
-      setLastUpdated(new Date());
-    } catch (err) {
-      setError(err.message);
-      setStats(null);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [dateRange],
+  );
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -255,6 +264,18 @@ export default function AdminDashboard() {
               <span>{error}</span>
             </div>
           )}
+
+          <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <DateRangePicker value={dateRange} onChange={setDateRange} />
+            <button
+              type="button"
+              onClick={() => fetchStats(apiKey)}
+              aria-disabled={loading}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 aria-disabled:cursor-not-allowed aria-disabled:opacity-60 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              Apply range
+            </button>
+          </div>
 
           {/* Politely announce load state without stealing focus. */}
           <p className="sr-only" role="status" aria-live="polite">
