@@ -9307,4 +9307,31 @@ mod tests {
         let result = client.try_oracle_resolve_dispute(&escrow_id, &payload, &grace);
         assert!(matches!(result, Err(Ok(EscrowError::E57))));
     }
+
+    #[test]
+    fn token_status_invariant_tracks_whitelist_transitions() {
+        let (env, admin, _, client) = setup();
+        client.initialize(&admin);
+        let token = Address::generate(&env);
+        assert_eq!(client.get_token_status(&token), (false, false, false));
+        client.set_token_whitelist_enabled(&admin, &true);
+        assert_eq!(client.get_token_status(&token), (false, true, false));
+        client.add_approved_token(&admin, &token);
+        assert_eq!(client.get_token_status(&token), (false, true, true));
+        client.remove_approved_token(&admin, &token);
+        assert_eq!(client.get_token_status(&token), (false, true, false));
+    }
+
+    #[test]
+    fn token_status_mutations_require_admin_authorization() {
+        let env = Env::default();
+        let admin = Address::generate(&env);
+        let outsider = Address::generate(&env);
+        let token = Address::generate(&env);
+        let contract_id = env.register_contract(None, EscrowContract);
+        let client = EscrowContractClient::new(&env, &contract_id);
+        client.initialize(&admin);
+        assert!(client.try_add_approved_token(&outsider, &token).is_err());
+        assert!(client.try_set_token_whitelist_enabled(&outsider, &true).is_err());
+    }
 }
